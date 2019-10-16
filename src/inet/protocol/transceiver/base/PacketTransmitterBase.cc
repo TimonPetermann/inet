@@ -16,6 +16,7 @@
 //
 
 #include "inet/common/ModuleAccess.h"
+#include "inet/common/PacketEventTag.h"
 #include "inet/common/ProtocolTag_m.h"
 #include "inet/protocol/transceiver/base/PacketTransmitterBase.h"
 
@@ -45,6 +46,11 @@ void PacketTransmitterBase::handleMessage(cMessage *message)
 Signal *PacketTransmitterBase::encodePacket(const Packet *txPacket) const
 {
     auto packet = txPacket->dup();
+    auto duration = calculateDuration(packet);
+    auto bitTransmissionTime = CLOCKTIME_AS_SIMTIME(duration / packet->getBitLength());
+    insertPacketEvent<TransmissionTimeTag>(packet, PEK_TRANSMITTED, bitTransmissionTime, this);
+    if (auto channel = dynamic_cast<cTransmissionChannel *>(outputGate->findTransmissionChannel()))
+        insertPacketEvent<PropagationTimeTag>(packet, PEK_PROPAGATED, channel->getDelay(), this);
     auto oldPacketProtocolTag = packet->removeTagIfPresent<PacketProtocolTag>();
     packet->clearTags();
     if (oldPacketProtocolTag != nullptr) {
@@ -52,7 +58,6 @@ Signal *PacketTransmitterBase::encodePacket(const Packet *txPacket) const
         *newPacketProtocolTag = *oldPacketProtocolTag;
         delete oldPacketProtocolTag;
     }
-    auto duration = calculateDuration(packet);
     auto signal = new Signal(packet->getName());
     signal->encapsulate(packet);
     signal->setDuration(CLOCKTIME_AS_SIMTIME(duration));

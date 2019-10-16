@@ -81,7 +81,7 @@ void RegionTagSet::addTag(b offset, b length, cObject *tag)
         take(static_cast<cOwnedObject *>(tag));
 }
 
-void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, cObject *)> f)
+void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, cObject *)> f) const
 {
     if (regionTags != nullptr) {
         b startOffset = offset;
@@ -106,11 +106,6 @@ void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, cObj
                 ASSERT(false);
         }
     }
-}
-
-void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, const cObject *)> f) const
-{
-    const_cast<RegionTagSet *>(this)->mapAllTags(offset, length, f);
 }
 
 std::vector<RegionTagSet::RegionTag<cObject>> RegionTagSet::getAllTags(b offset, b length) const

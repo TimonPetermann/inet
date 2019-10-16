@@ -92,8 +92,7 @@ class INET_API RegionTagSet : public cObject
     void ensureAllocated();
 
     void addTag(b offset, b length, cObject *tag);
-    void mapAllTags(b offset, b length, std::function<void (b, b, cObject *)> f);
-    void mapAllTags(b offset, b length, std::function<void (b, b, const cObject *)> f) const;
+    void mapAllTags(b offset, b length, std::function<void (b, b, cObject *)> f) const;
     std::vector<RegionTag<cObject>> getAllTags(b offset, b length) const;
     cObject *removeTag(int index);
     void clearAllTags();

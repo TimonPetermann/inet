@@ -1,3 +1,13 @@
+end-to-end delay
+jitter
+numPackets
+numBytes
+
+TimeTag vs FlowTag vs many small/large tags
+Chunk API for efficient tag managment
+handling different ethernet frame representations
+link visualizer KLUDGEs
+
 considerations for generic modular packet processing elements:
  - modules implement the same set of interfaces
  - gates are either passive or active

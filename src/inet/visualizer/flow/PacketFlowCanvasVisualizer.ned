@@ -23,7 +23,7 @@ import inet.visualizer.contract.IPacketFlowVisualizer;
 simple PacketFlowCanvasVisualizer extends PathVisualizerBase like IPacketFlowVisualizer
 {
     parameters:
-		startPathSignal = default("packetFlowEntered");
+		startPathSignal = default("packetFlowStarted");
 		endPathSignal = default("packetFlowExited");
         labelFormat = default("%L %p pk (%l)");
         lineStyle = default("dashed");

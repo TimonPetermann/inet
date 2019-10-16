@@ -313,6 +313,41 @@ const Ptr<Chunk> Packet::removeAll()
     return result;
 }
 
+void Packet::updateAt(std::function<void (const Ptr<Chunk>&)> f, b offset, b length, int flags)
+{
+    const auto& chunk = peekAt(offset, length, flags);
+    // TODO: we have no way of knowing if chunk is an immutable copy of some part of the packet, so this is incorrect
+    const auto& mutableChunk = makeExclusivelyOwnedMutableChunk(chunk);
+    f(mutableChunk);
+    mutableChunk->markImmutable();
+    if (mutableChunk != chunk) {
+        auto const& oldContent = content;
+        auto sequenceChunk = makeShared<SequenceChunk>();
+        if (offset > b(0))
+            sequenceChunk->insertAtBack(peekAt(b(0), offset));
+        sequenceChunk->insertAtBack(mutableChunk);
+        auto backLength = oldContent->getChunkLength() - offset - length;
+        if (backLength > b(0))
+            sequenceChunk->insertAtBack(peekAt(offset + length, backLength));
+        sequenceChunk->markImmutable();
+        content = sequenceChunk;
+    }
+    else
+        totalLength = getTotalLength();
+}
+
+void Packet::updateData(std::function<void (const Ptr<Chunk>&)> f, int flags)
+{
+    updateAt(f, getFrontOffset(), getDataLength(), flags);
+}
+
+void Packet::updateAll(std::function<void (const Ptr<Chunk>&)> f, int flags)
+{
+    const auto& chunk = makeExclusivelyOwnedMutableChunk(content);
+    f(chunk);
+    content = chunk;
+}
+
 //(inet::Packet)UdpBasicAppData-0 (5000 B) [content]
 std::string Packet::str() const
 {

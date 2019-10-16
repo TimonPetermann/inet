@@ -16,6 +16,8 @@
 #ifndef __INET_PACKET_H_
 #define __INET_PACKET_H_
 
+#include <functional>
+#include "inet/common/packet/chunk/SequenceChunk.h"
 #include "inet/common/packet/chunk/BitsChunk.h"
 #include "inet/common/packet/chunk/BytesChunk.h"
 #include "inet/common/packet/tag/TagSet.h"
@@ -565,6 +567,114 @@ class INET_API Packet : public cPacket
      * current representation. Resets both front and back offsets to zero.
      */
     const Ptr<Chunk> removeAll();
+    //@}
+
+    /** @name Updating data related functions */
+    //@{
+    /**
+     * Updates the designated part by applying the provided function on the
+     * requested mutable representation. The changes are reflected in the packet.
+     * If the length is unspecified, then the length of the part is chosen
+     * according to the current representation. The length of front popped part
+     * must be zero before calling this function. The flags parameter is a
+     * combination of Chunk::PeekFlag enumeration members.
+     */
+    // TODO: maybe it would be better to have updateAtFron and canUpdateAtFront methods in the chunk API
+    template <typename T>
+    void updateAtFront(std::function<void (const Ptr<T>&)> f, b length = b(-1), int flags = 0) {
+        const auto& chunk = peekAtFront<T>(length, flags);
+        // TODO: we have no way of knowing if chunk is an immutable copy of some part of the packet, so this is incorrect
+        const auto& mutableChunk = makeExclusivelyOwnedMutableChunk(chunk);
+        f(mutableChunk);
+        if (mutableChunk != chunk) {
+            eraseAtFront(chunk->getChunkLength());
+            insertAtFront(mutableChunk);
+        }
+        else {
+            mutableChunk->markImmutable();
+            totalLength = getTotalLength();
+        }
+    }
+
+    void updateAtFront(std::function<void (const Ptr<Chunk>&)> f, b length = b(-1), int flags = 0) {
+    }
+
+    /**
+     * Updates the designated part by applying the provided function on the
+     * requested mutable representation. The changes are reflected in the packet.
+     * If the length is unspecified, then the length of the part is chosen
+     * according to the current representation. The length of back popped part
+     * must be zero before calling this function. The flags parameter is a
+     * combination of Chunk::PeekFlag enumeration members.
+     */
+    // TODO: maybe it would be better to have updateAtBack and canUpdateAtBack methods in the chunk API
+    template <typename T>
+    void updateAtBack(std::function<void (const Ptr<T>&)> f, b length, int flags = 0) {
+        const auto& chunk = peekAtBack<T>(length, flags);
+        // TODO: we have no way of knowing if chunk is an immutable copy of some part of the packet, so this is incorrect
+        const auto& mutableChunk = makeExclusivelyOwnedMutableChunk(chunk);
+        f(mutableChunk);
+        if (mutableChunk != chunk) {
+            eraseAtBack(chunk->getChunkLength());
+            insertAtBack(mutableChunk);
+        }
+        else {
+            mutableChunk->markImmutable();
+            totalLength = getTotalLength();
+        }
+    }
+
+    void updateAtBack(std::function<void (const Ptr<Chunk>&)> f, b length = b(-1), int flags = 0) {
+    }
+
+    /**
+     * Updates the designated part by applying the provided function on the
+     * requested mutable representation. The changes are reflected in the packet.
+     * If the length is unspecified, then the length of the part is chosen
+     * according to the current representation. The length of back popped part
+     * must be zero before calling this function. The flags parameter is a
+     * combination of Chunk::PeekFlag enumeration members.
+     */
+    template <typename T>
+    void updateAt(std::function<void (const Ptr<T>&)> f, b offset, b length = b(-1), int flags = 0) {
+        const auto& chunk = peekAt<T>(offset, length, flags);
+        // TODO: we have no way of knowing if chunk is an immutable copy of some part of the packet, so this is incorrect
+        const auto& mutableChunk = makeExclusivelyOwnedMutableChunk(chunk);
+        f(mutableChunk);
+        mutableChunk->markImmutable();
+        if (mutableChunk != chunk) {
+            auto const& oldContent = content;
+            auto sequenceChunk = makeShared<SequenceChunk>();
+            sequenceChunk->insertAtBack(peekAt(b(0), offset));
+            sequenceChunk->insertAtBack(mutableChunk);
+            sequenceChunk->insertAtBack(peekAt(offset + length, oldContent->getChunkLength() - offset - length));
+            sequenceChunk->markImmutable();
+            content = sequenceChunk;
+        }
+        else
+            totalLength = getTotalLength();
+    }
+
+    void updateAt(std::function<void (const Ptr<Chunk>&)> f, b offset, b length = b(-1), int flags = 0);
+
+    template <typename T>
+    void updateData(std::function<void (const Ptr<T>&)> f, int flags = 0) {
+    }
+
+    void updateData(std::function<void (const Ptr<Chunk>&)> f, int flags = 0);
+
+    template <typename T>
+    void updateDataAt(std::function<void (const Ptr<T>&)> f, int flags = 0) {
+    }
+
+    void updateDataAt(std::function<void (const Ptr<Chunk>&)> f, int flags = 0) {
+    }
+
+    template <typename T>
+    void updateAll(std::function<void (const Ptr<T>&)> f, int flags = 0) {
+    }
+
+    void updateAll(std::function<void (const Ptr<Chunk>&)> f, int flags = 0);
     //@}
 
     /** @name Tag related functions */

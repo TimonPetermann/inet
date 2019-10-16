@@ -84,7 +84,7 @@ void Ieee8021dRelay::handleLowerPacket(Packet *packet)
 
 void Ieee8021dRelay::handleUpperPacket(Packet *packet)
 {
-    const auto& frame = packet->peekAtFront<EthernetMacHeader>();
+    const auto& frame = packet->peekAtFront<EthernetMacHeader>(B(14), Chunk::PF_ALLOW_SERIALIZATION);
 
     InterfaceReq* interfaceReq = packet->findTag<InterfaceReq>();
     int interfaceId =
@@ -157,7 +157,7 @@ namespace {
 
 void Ieee8021dRelay::handleAndDispatchFrame(Packet *packet)
 {
-    const auto& frame = packet->peekAtFront<EthernetMacHeader>();
+    const auto& frame = packet->peekAtFront<EthernetMacHeader>(B(14), Chunk::PF_ALLOW_SERIALIZATION);
     int arrivalInterfaceId = packet->getTag<InterfaceInd>()->getInterfaceId();
     InterfaceEntry *arrivalInterface = ifTable->getInterfaceById(arrivalInterfaceId);
     Ieee8021dInterfaceData *arrivalPortData = arrivalInterface->findProtocolData<Ieee8021dInterfaceData>();
@@ -217,7 +217,7 @@ void Ieee8021dRelay::handleAndDispatchFrame(Packet *packet)
 
 void Ieee8021dRelay::dispatch(Packet *packet, InterfaceEntry *ie)
 {
-    const auto& frame = packet->peekAtFront<EthernetMacHeader>();
+    const auto& frame = packet->peekAtFront<EthernetMacHeader>(B(14), Chunk::PF_ALLOW_SERIALIZATION);
     EV_INFO << "Sending frame " << packet << " on output interface " << ie->getFullName() << " with destination = " << frame->getDest() << endl;
 
     numDispatchedNonBPDUFrames++;

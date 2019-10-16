@@ -43,6 +43,8 @@ import inet.queueing.contract.IPacketQueue;
 import inet.queueing.contract.IPacketServer;
 import inet.queueing.contract.ITrafficConditioner;
 import inet.queueing.scheduler.PriorityScheduler;
+import inet.queueing.timing.TimingMeasurementMaker;
+import inet.queueing.timing.TimingMeasurementStarter;
 
 // TODO: add socket handling
 // TODO: dispatch for LLC/ethertype
@@ -120,6 +122,58 @@ module EthernetSocketLayer like ISocketLayer
 
         lowerLayerIn --> { @display("m=s"); } --> packetProcessor.in;
         packetProcessor.out --> { @display("m=n"); } --> upperLayerOut; 
+}
+
+moduleinterface IMeasurementLayer
+{
+    parameters:
+        @display("i=block/layer");
+    gates:
+        input upperLayerIn;
+        output upperLayerOut;
+        input lowerLayerIn;
+        output lowerLayerOut;
+}
+
+module OmittedMeasurementLayer like IMeasurementLayer
+{
+    parameters:
+        @class(OmittedModule);
+        @display("i=block/layer,black,50");
+    gates:
+        input upperLayerIn;
+        output upperLayerOut;
+        input lowerLayerIn;
+        output lowerLayerOut;
+    connections:
+        upperLayerIn --> lowerLayerOut;
+        lowerLayerIn --> upperLayerOut;
+}
+
+module MeasurementLayer like IMeasurementLayer
+{
+    parameters:
+        @display("i=block/layer");
+    gates:
+        input upperLayerIn;
+        output upperLayerOut;
+        input lowerLayerIn;
+        output lowerLayerOut;
+    submodules:
+        measurementStarter: <default("TimingMeasurementStarter")> like IPacketFlow {
+            parameters:
+                @display("p=150,100");
+        }
+        measurementMaker: <default("TimingMeasurementMaker")> like IPacketFlow {
+            parameters:
+                @display("p=350,100");
+        }
+    connections:
+        upperLayerIn --> { @display("m=n"); } --> measurementStarter.in;
+        measurementStarter.out --> { @display("m=s"); } --> lowerLayerOut;
+
+        lowerLayerIn --> { @display("m=s"); } --> measurementMaker.in;
+        measurementMaker.out --> { @display("m=n"); } --> upperLayerOut;
 }
 
 moduleinterface ITrafficConditionerLayer
@@ -240,6 +294,7 @@ moduleinterface IEthernetMacLayer
 module EthernetMacLayer like IEthernetMacLayer
 {
     parameters:
+        paddingInserter.minLength = default(60B);
         @display("i=block/layer");
     gates:
         input upperLayerIn;
@@ -247,7 +302,7 @@ module EthernetMacLayer like IEthernetMacLayer
         input lowerLayerIn;
         output lowerLayerOut;
     submodules:
-        typeOrLengthInserter: EthernetTypeOrLengthInserter {
+        typeOrLengthInserter: <default("EthernetTypeOrLengthInserter")> like IPacketFlow {
             @display("p=200,100");
         }
         ctagInserter: <default("OmittedIeee8021qInserter")> like IIeee8021qInserter {
@@ -258,11 +313,10 @@ module EthernetMacLayer like IEthernetMacLayer
             vlanTagType = "s";
             @display("p=200,300");
         }
-        addressInserter: EthernetAddressInserter {
+        addressInserter: <default("EthernetAddressInserter")> like IPacketFlow {
             @display("p=200,400");
         }
-        paddingInserter: PaddingInserter {
-            minLength = default(60B);
+        paddingInserter: <default("PaddingInserter")> like IPacketFlow {
             @display("p=200,500");
         }
         queue: <default("PacketQueue")> like IPacketQueue {
@@ -280,7 +334,7 @@ module EthernetMacLayer like IEthernetMacLayer
         preambleInserter: <default("EthernetPreambleInserter")> like IPacketFlow {
             @display("p=200,1000");
         }
-        typeOrLengthChecker: EthernetTypeOrLengthChecker {
+        typeOrLengthChecker: <default("EthernetTypeOrLengthChecker")> like IPacketFilter {
             @display("p=500,100");
         }
         ctagChecker: <default("OmittedIeee8021qChecker")> like IIeee8021qChecker {
@@ -291,7 +345,7 @@ module EthernetMacLayer like IEthernetMacLayer
             vlanTagType = "s";
             @display("p=500,300");
         }
-        addressChecker: EthernetAddressChecker {
+        addressChecker: <default("EthernetAddressChecker")> like IPacketFilter {
             @display("p=500,400");
         }
         fcsChecker: <default("EthernetFcsChecker")> like IPacketFilter {
@@ -320,6 +374,17 @@ module EthernetMacLayer like IEthernetMacLayer
         stagChecker.out --> ctagChecker.in;
         ctagChecker.out --> typeOrLengthChecker.in;
         typeOrLengthChecker.out --> { @display("m=n"); } --> upperLayerOut;
+}
+
+module EthernetRawMacLayer extends EthernetMacLayer
+{
+    parameters:
+        typeOrLengthInserter.typename = default("OmittedPacketFlow");
+        addressInserter.typename = default("OmittedPacketFlow");
+        paddingInserter.typename = default("OmittedPacketFlow");
+        fcsInserter.typename = default("OmittedPacketFlow");
+        addressChecker.typename = default("OmittedPacketFilter");
+        typeOrLengthChecker.typename = default("OmittedPacketFilter");
 }
 
 module EthernetStreamingMacLayer extends EthernetMacLayer
@@ -418,6 +483,12 @@ module EthernetPhyLayer like IEthernetPhyLayer
 {
     parameters:
         volatile double bitrate @unit(bps);
+        outboundEmitter.signalName = "packetSentToLower";
+        outboundEmitter.direction = "outbound";
+        outboundEmitter.protocolName = "ethernetphy";
+        inboundEmitter.signalName = "packetReceivedFromLower";
+        inboundEmitter.direction = "inbound";
+        inboundEmitter.protocolName = "ethernetphy";
         @display("i=block/layer");
     gates:
         input upperLayerIn;
@@ -425,10 +496,7 @@ module EthernetPhyLayer like IEthernetPhyLayer
         input lowerLayerIn;
         output lowerLayerOut;
     submodules:
-        outboundEmitter: PacketEmitter {
-            signalName = "packetSentToLower";
-            direction = "outbound";
-            protocolName = "ethernetphy";
+        outboundEmitter: <default("PacketEmitter")> like IPacketFlow {
             @display("p=150,100");
         }
         interFrameGapInserter: InterPacketGap {
@@ -439,10 +507,7 @@ module EthernetPhyLayer like IEthernetPhyLayer
             datarate = default(bitrate);
             @display("p=150,300");
         }
-        inboundEmitter: PacketEmitter {
-            signalName = "packetReceivedFromLower";
-            direction = "inbound";
-            protocolName = "ethernetphy";
+        inboundEmitter: <default("PacketEmitter")> like IPacketFlow {
             @display("p=350,100");
         }
         receiver: StreamingReceiver {
@@ -479,21 +544,25 @@ module LayeredEthernetInterface extends InterfaceEntry like IEthernetInterface
         socketLayer: <default("OmittedSocketLayer")> like ISocketLayer {
             @display("p=400,100");
         }
-        trafficConditionerLayer: <default("OmittedTrafficConditionerLayer")> like ITrafficConditionerLayer {
+        measurementLayer: <default("OmittedMeasurementLayer")> like IMeasurementLayer {
             @display("p=400,200");
         }
-        llcLayer: <default("OmittedIeee8022LlcLayer")> like IIeee8022LlcLayer {
+        trafficConditionerLayer: <default("OmittedTrafficConditionerLayer")> like ITrafficConditionerLayer {
             @display("p=400,300");
         }
-        macLayer: <default("EthernetMacLayer")> like IEthernetMacLayer {
+        llcLayer: <default("OmittedIeee8022LlcLayer")> like IIeee8022LlcLayer {
             @display("p=400,400");
         }
-        phyLayer: <default("EthernetPhyLayer")> like IEthernetPhyLayer {
+        macLayer: <default("EthernetMacLayer")> like IEthernetMacLayer {
             @display("p=400,500");
+        }
+        phyLayer: <default("EthernetPhyLayer")> like IEthernetPhyLayer {
+            @display("p=400,600");
         }
     connections:
         upperLayerIn --> { @display("m=n"); } --> socketLayer.upperLayerIn;
-        socketLayer.lowerLayerOut --> trafficConditionerLayer.upperLayerIn;
+        socketLayer.lowerLayerOut --> measurementLayer.upperLayerIn;
+        measurementLayer.lowerLayerOut --> trafficConditionerLayer.upperLayerIn;
         trafficConditionerLayer.lowerLayerOut --> llcLayer.upperLayerIn;
         llcLayer.lowerLayerOut --> macLayer.upperLayerIn;
         macLayer.lowerLayerOut --> phyLayer.upperLayerIn;
@@ -503,6 +572,7 @@ module LayeredEthernetInterface extends InterfaceEntry like IEthernetInterface
         phyLayer.upperLayerOut --> macLayer.lowerLayerIn;
         macLayer.upperLayerOut --> llcLayer.lowerLayerIn;
         llcLayer.upperLayerOut --> trafficConditionerLayer.lowerLayerIn;
-        trafficConditionerLayer.upperLayerOut --> socketLayer.lowerLayerIn;
+        trafficConditionerLayer.upperLayerOut --> measurementLayer.lowerLayerIn;
+        measurementLayer.upperLayerOut --> socketLayer.lowerLayerIn;
         socketLayer.upperLayerOut --> { @display("m=n"); } --> upperLayerOut;
 }
