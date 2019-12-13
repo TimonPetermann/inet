@@ -16,6 +16,7 @@
 #ifndef __INET_REGIONTAGSET_H_
 #define __INET_REGIONTAGSET_H_
 
+#include <functional>
 #include "inet/common/INETDefs.h"
 #include "inet/common/Units.h"
 
@@ -143,6 +144,10 @@ class INET_API RegionTagSet : public cObject
      */
     template <typename T> T *getTag(b offset, b length) const;
 
+    template <typename T> void mapAllTags(b offset, b length, std::function<void (b, b, const T*)> f) const;
+
+    template <typename T> void mapAllTags(b offset, b length, std::function<void (b, b, T*)> f);
+
     /**
      * Returns all tags for the provided type and range.
      */
@@ -248,12 +253,15 @@ inline T *RegionTagSet::removeTagIfPresent(b offset, b length)
 }
 
 template <typename T>
-inline std::vector<RegionTagSet::RegionTag<T>> RegionTagSet::getAllTags(b offset, b length) const
+inline void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, const T*)> f) const
 {
-    if (regionTags == nullptr)
-        return std::vector<RegionTagSet::RegionTag<T>>();
-    else {
-        std::vector<RegionTagSet::RegionTag<T>> result;
+    const_cast<RegionTagSet *>(this)->mapAllTags<T>(offset, length, std::function<void (b, b, T*)>(f));
+}
+
+template <typename T>
+inline void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, T*)> f)
+{
+    if (regionTags != nullptr) {
         b getStartOffset = offset;
         b getEndOffset = offset + length;
         for (auto& regionTag : *regionTags) {
@@ -263,22 +271,31 @@ inline std::vector<RegionTagSet::RegionTag<T>> RegionTagSet::getAllTags(b offset
                     continue;
                 else if (getStartOffset <= regionTag.getStartOffset() && regionTag.getEndOffset() <= getEndOffset)
                     // get totally covers region
-                    result.push_back(RegionTag<T>(regionTag.getOffset(), regionTag.getLength(), tag->dup()));
+                    f(regionTag.getOffset(), regionTag.getLength(), tag);
                 else if (regionTag.getStartOffset() < getStartOffset && getEndOffset < regionTag.getEndOffset())
                     // get splits region into two parts
-                    result.push_back(RegionTag<T>(getStartOffset, getEndOffset - getStartOffset, tag->dup()));
+                    f(getStartOffset, getEndOffset - getStartOffset, tag);
                 else if (regionTag.getEndOffset() <= getEndOffset)
                     // get cuts end of region
-                    result.push_back(RegionTag<T>(getStartOffset, regionTag.getEndOffset() - getStartOffset, tag->dup()));
+                    f(getStartOffset, regionTag.getEndOffset() - getStartOffset, tag);
                 else if (getStartOffset <= regionTag.getStartOffset())
                     // get cuts beginning of region
-                    result.push_back(RegionTag<T>(regionTag.getStartOffset(), getEndOffset - regionTag.getStartOffset(), tag->dup()));
+                    f(regionTag.getStartOffset(), getEndOffset - regionTag.getStartOffset(), tag);
                 else
                     ASSERT(false);
             }
         }
-        return result;
     }
+}
+
+template <typename T>
+inline std::vector<RegionTagSet::RegionTag<T>> RegionTagSet::getAllTags(b offset, b length) const
+{
+    std::vector<RegionTagSet::RegionTag<T>> result;
+    mapAllTags<T>(offset, length, [&] (b o, b l, const T *t) {
+        result.push_back(RegionTag<T>(o, l, t->dup()));
+    });
+    return result;
 }
 
 template <typename T>
