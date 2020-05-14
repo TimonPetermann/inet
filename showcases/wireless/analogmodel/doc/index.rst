@@ -349,22 +349,26 @@ Here is the spectrum displayed on a spectrum figure:
 Background noise is specified as power density, instead of power (specifying signal
 strength with power is only relevant when the frequency of the signal is defined in a range).
 
-**TODO** network + legend (spectrum figure, spectrogram)
+.. **TODO** network + legend (spectrum figure, spectrogram)
+
+The network looks like the following:
+
+.. figure:: media/noisenetwork.png
+   :align: center
+   :width: 100%
 
 Here is a video of the simulation. Signals are visualized with colored rings, successful PHY and
 datalink-layer transmissions are visualized with arrows. The signals are displayed with
 spectrum figures and spectrograms:
 
-.. video:: media/noise1.mp4
+.. video:: media/noise10.mp4
    :width: 100%
 
-.. animation speed none, playback speed 0.25, zoom 3.71, normal run from event 299 to 518
-   hide physical and data link visualizers until around event 334
+.. animation speed none, playback speed 0.25, zoom 3.71, normal run
 
 Transmissions from one of the hosts and the noise source cause the other host to defer from
-transmitting. The noise transmissions often overlap the data frames, yet the short bursts
-are not enough to ruin their reception, most packets are successfully received. Note that
-the thin line of the noise on the spectrogram is much shorter than the data frame. Also,
+transmitting. The noise transmissions often overlap the data frames, sometimes ruining reception.
+Note that the thin line of the noise on the spectrogram is much shorter than the data frame. Also,
 the spectrograms have a colored background due to the background noise (also displayed
 on the spectrum figures).
 
