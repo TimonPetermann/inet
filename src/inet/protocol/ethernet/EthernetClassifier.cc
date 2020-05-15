@@ -15,6 +15,7 @@
 // along with this program; if not, see http://www.gnu.org/licenses/.
 //
 
+#include "inet/common/ProtocolTag_m.h"
 #include "inet/linklayer/common/UserPriorityTag_m.h"
 #include "inet/linklayer/common/VlanTag_m.h"
 #include "inet/linklayer/ethernet/EtherPhyFrame_m.h"
@@ -48,6 +49,14 @@ static int classifyPacketByEthernetPreambleType(Packet *packet)
 }
 
 Register_Packet_Classifier_Function(PacketEthernetPreambleTypeClassifier, classifyPacketByEthernetPreambleType);
+
+static int classifyPacketByLlcProtocol(Packet *packet)
+{
+    auto protocolTag = packet->findTag<PacketProtocolTag>();
+    return (protocolTag != nullptr && *protocolTag->getProtocol() == Protocol::ieee8022) ? 1 : 0;
+}
+
+Register_Packet_Classifier_Function(EthernetLlcClassifier, classifyPacketByLlcProtocol);
 
 } // namespace inet
 

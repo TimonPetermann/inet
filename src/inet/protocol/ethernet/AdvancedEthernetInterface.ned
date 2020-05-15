@@ -262,12 +262,12 @@ module OmittedSocketLayer like ISocketLayer
         lowerLayerIn --> upperLayerOut;
 }
 
-simple EthernetSocketTable {
+simple EthernetSocketTable_ {
     parameters:
 	    @display("i=block/table");
 }
 
-simple EthernetSocketCommandProcessor {
+simple EthernetSocketCommandProcessor_ {
     parameters:
 	    @display("i=block/cogwheel");
     gates:
@@ -275,7 +275,7 @@ simple EthernetSocketCommandProcessor {
         output out;
 }
 
-simple EthernetSocketPacketProcessor {
+simple EthernetSocketPacketProcessor_ {
     parameters:
 	    @display("i=block/cogwheel");
     gates:
@@ -293,13 +293,13 @@ module EthernetSocketLayer like ISocketLayer
         input lowerLayerIn;
         output lowerLayerOut;
     submodules:
-        socketTable: EthernetSocketTable {
+        socketTable: EthernetSocketTable_ {
             @display("p=100,100;is=s");
         }
-        commandProcessor: EthernetSocketCommandProcessor {
+        commandProcessor: EthernetSocketCommandProcessor_ {
             @display("p=300,100");
         }
-        packetProcessor: EthernetSocketPacketProcessor {
+        packetProcessor: EthernetSocketPacketProcessor_ {
             @display("p=500,100");
         }
     connections:

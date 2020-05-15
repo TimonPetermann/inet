@@ -17,6 +17,7 @@
 
 package inet.protocol.ethernet;
 
+import inet.common.MessageDispatcher;
 import inet.linklayer.contract.IEthernetInterface;
 import inet.linklayer.ethernet.IEtherEncap;
 import inet.linklayer.ieee8021q.IIeee8021qEncap;
@@ -33,6 +34,8 @@ import inet.protocol.ieee8022.IIeee8022LlcChecker;
 import inet.protocol.ieee8022.IIeee8022LlcInserter;
 import inet.protocol.transceiver.StreamingReceiver;
 import inet.protocol.transceiver.StreamingTransmitter;
+import inet.queueing.classifier.PacketClassifier;
+import inet.queueing.common.PacketMultiplexer;
 import inet.queueing.contract.IPacketFilter;
 import inet.queueing.contract.IPacketQueue;
 import inet.queueing.contract.ITrafficConditioner;
@@ -43,80 +46,130 @@ module EtherEncapModularized like IEtherEncap
 {
     parameters:
     //        string interfaceTableModule;   // The path to the InterfaceTable module
-    //        bool useSNAP = default(false);  // create EtherFrameWithSNAP frames instead of EthernetIIFrame
+        bool useSNAP = default(false);  // create EtherFrameWithSNAP frames instead of EthernetIIFrame
     //        string fcsMode @enum("declared", "computed");
     //        bool registerProtocol = default(false);     //FIXME //KLUDGE should redesign place of EtherEncap and LLC modules
     //        @lifecycleSupport;
     //        double stopOperationExtraTime @unit(s) = default(-1s);    // extra time after lifecycle stop operation finished
     //        double stopOperationTimeout @unit(s) = default(2s);    // timeout value for lifecycle stop operation
     //        @display("i=block/square");
+        llcInserter.useSNAP = useSNAP;
     gates:
         input upperLayerIn @labels(Ieee802Ctrl/down); // higher layer
         output upperLayerOut @labels(Ieee802Ctrl/up); // higher layer
         input lowerLayerIn @labels(EtherFrame);   // to Ethernet MAC
         output lowerLayerOut @labels(EtherFrame); // to Ethernet MAC
     submodules:
-        llcInserter: <default("Ieee8022LlcInserter")> like IIeee8022LlcInserter {
+        ethPauseCommandProcessor: EthernetPauseCommandProcessor {
             @display("p=200,100");
         }
-        typeOrLengthInserter: EthernetTypeOrLengthInserter {
+        ethSocketCommandProcessor: EthernetSocketCommandProcessor {
+            socketTableModule = "^.ethernetSocketTable";
+            @display("p=200,200");
+        }
+        llcSocketCommandProcessor: LlcSocketCommandProcessor {
+            socketTableModule = "^.llcSocketTable";
             @display("p=200,300");
+        }
+        llcInserter: <default("Ieee8022LlcInserter")> like IIeee8022LlcInserter {
+            @display("p=200,400");
+        }
+        typeOrLengthInserter: EthernetTypeOrLengthInserter {
+            @display("p=200,500");
         }
         ctagInserter: <default("OmittedIeee8021qInserter")> like IIeee8021qInserter {
             vlanTagType = "c";
-            @display("p=200,400");
+            @display("p=200,600");
         }
         stagInserter: <default("OmittedIeee8021qInserter")> like IIeee8021qInserter {
             vlanTagType = "s";
-            @display("p=200,500");
+            @display("p=200,700");
         }
         addressInserter: EthernetAddressInserter {
-            @display("p=200,600");
-        }
-        addressChecker: EthernetAddressChecker {
-            @display("p=500,600");
-        }
-        stagChecker: <default("OmittedIeee8021qChecker")> like IIeee8021qChecker {
-            vlanTagType = "s";
-            @display("p=500,500");
-        }
-        ctagChecker: <default("OmittedIeee8021qChecker")> like IIeee8021qChecker {
-            vlanTagType = "c";
-            @display("p=500,400");
-        }
-        typeOrLengthChecker: EthernetTypeOrLengthChecker {
-            @display("p=500,300");
-        }
-        llcChecker: <default("Ieee8022LlcChecker")> like IIeee8022LlcChecker {
-            @display("p=500,200");
-        }
-        protocolChecker: ProtocolChecker {
-            @display("p=500,100");
+            @display("p=200,800");
         }
         fcsInserter: EthernetFcsInserter {
             parameters:
-                @display("p=200,714");
+                @display("p=200,900");
         }
+
         fcsChecker: <default("EthernetFcsChecker")> like IPacketFilter {
-            @display("p=500,714");
+            @display("p=500,900");
+        }
+        addressChecker: EthernetAddressChecker {
+            @display("p=500,800");
+        }
+        stagChecker: <default("OmittedIeee8021qChecker")> like IIeee8021qChecker {
+            vlanTagType = "s";
+            @display("p=500,700");
+        }
+        ctagChecker: <default("OmittedIeee8021qChecker")> like IIeee8021qChecker {
+            vlanTagType = "c";
+            @display("p=500,600");
+        }
+        typeOrLengthChecker: EthernetTypeOrLengthChecker {
+            @display("p=500,500");
+        }
+        llcClassifier: PacketClassifier {
+            classifierClass = default("inet::EthernetLlcClassifier");
+            @display("p=500,400");
+        }
+        llcChecker: <default("Ieee8022LlcChecker")> like IIeee8022LlcChecker {
+            @display("p=631,349");
+        }
+        protocolChecker: ProtocolChecker {
+            @display("p=500,200");
+        }
+        m2: MessageDispatcher {
+            @display("p=500,100");
+        }
+        ethSocketPacketProcessor: EthernetSocketPacketProcessor {
+            socketTableModule = "^.ethernetSocketTable";
+            @display("p=402,349");
+        }
+        m1: PacketMultiplexer {
+            @display("p=500,276");
+        }
+        llcSocketPacketProcessor: LlcSocketPacketProcessor {
+            socketTableModule = "^.llcSocketTable";
+            @display("p=607,276");
+        }
+        ethernetSocketTable: EthernetSocketTable {
+            @display("p=68,177");
+        }
+        llcSocketTable: LlcSocketTable {
+            @display("p=68,276");
         }
     connections:
-        upperLayerIn --> llcInserter.in;
+        upperLayerIn --> ethPauseCommandProcessor.in;
         llcInserter.out --> typeOrLengthInserter.in;
         typeOrLengthInserter.out --> ctagInserter.in;
         ctagInserter.out --> stagInserter.in;
         stagInserter.out --> addressInserter.in;
         addressInserter.out --> fcsInserter.in;
         fcsInserter.out --> lowerLayerOut;
+        ethSocketCommandProcessor.cmdOut --> m2.in++;
+        llcSocketCommandProcessor.cmdOut --> m2.in++;
 
         lowerLayerIn --> fcsChecker.in;
         fcsChecker.out --> addressChecker.in;
         addressChecker.out --> stagChecker.in;
         stagChecker.out --> ctagChecker.in;
         ctagChecker.out --> typeOrLengthChecker.in;
-        typeOrLengthChecker.out --> llcChecker.in;
-        llcChecker.out --> protocolChecker.in;
-        protocolChecker.out --> upperLayerOut;
+        typeOrLengthChecker.out --> llcClassifier.in;
+        m1.out --> protocolChecker.in;
+        protocolChecker.out --> m2.in++;
+        ethPauseCommandProcessor.out --> ethSocketCommandProcessor.in;
+        ethSocketCommandProcessor.out --> llcSocketCommandProcessor.in;
+        llcSocketCommandProcessor.out --> llcInserter.in;
+        m2.out++ --> upperLayerOut;
+        llcClassifier.out++ --> ethSocketPacketProcessor.in;
+        ethSocketPacketProcessor.out --> m1.in++;
+        ethSocketPacketProcessor.socketOut --> m2.in++;
+        llcClassifier.out++ --> llcChecker.in;
+        llcChecker.out --> llcSocketPacketProcessor.in;
+        llcSocketPacketProcessor.out --> m1.in++;
+        llcSocketPacketProcessor.socketOut --> m2.in++;
 }
 
 module EthFakeMac
@@ -155,9 +208,9 @@ module EthernetInterfaceEnc extends InterfaceEntry like IEthernetInterface
         ifg.duration = 96s/dropUnit(bitrate);
         transmitter.datarate = bitrate;
         receiver.datarate = bitrate;
-        addressChecking.promiscuous = promiscuous;
+        encap.addressChecker.promiscuous = promiscuous;
         encap.fcsMode = fcsMode;
-        encap.interfaceTableModule = default(absPath(interfaceTableModule));
+        encap.*.interfaceTableModule = default(absPath(interfaceTableModule));
         ingressTC.interfaceTableModule = default(absPath(interfaceTableModule));
         egressTC.interfaceTableModule = default(absPath(interfaceTableModule));
     gates:
@@ -174,10 +227,6 @@ module EthernetInterfaceEnc extends InterfaceEntry like IEthernetInterface
         encap: <default("EtherEncapModularized")> like IEtherEncap {
             parameters:
                 @display("p=350,150");
-        }
-        qEncap: <default("OmittedIeee8021qEncap")> like IIeee8021qEncap {
-            parameters:
-                @display("p=350,250");
         }
         mac: EthFakeMac {
             parameters:
@@ -244,8 +293,7 @@ module EthernetInterfaceEnc extends InterfaceEntry like IEthernetInterface
         encap.upperLayerOut --> ingressTC.in;
         ingressTC.out --> { @display("m=n"); } --> upperLayerOut;
 
-        encap.lowerLayerOut --> qEncap.upperLayerIn;
-        qEncap.lowerLayerOut --> mac.in;
+        encap.lowerLayerOut --> mac.in;
 
         mac.out --> server.in;
         server.out --> fcsDropper.in;
@@ -259,9 +307,7 @@ module EthernetInterfaceEnc extends InterfaceEntry like IEthernetInterface
         transmitter.out --> cm.in;
         cm.physOut --> { @display("m=s"); } --> phys$o;
 
-        fcsChecker.out --> qEncap.lowerLayerIn;
-        qEncap.upperLayerOut --> encap.lowerLayerIn;
-
+        fcsChecker.out --> encap.lowerLayerIn;
         preambleChecker.out --> fcsChecker.in;
         receiver.out --> preambleChecker.in;
         cm.out --> receiver.in;

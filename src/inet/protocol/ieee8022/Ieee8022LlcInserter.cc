@@ -45,6 +45,8 @@ void Ieee8022LlcInserter::processPacket(Packet *packet)
         if (ethType == -1)
             snapOui = ProtocolGroup::snapOui.findProtocolNumber(protocol);
     }
+    if (protocol && protocol != &Protocol::ieee8022 && ethType != -1 && !par("useSNAP").boolValue())
+        return;
     if (ethType != -1 || snapOui != -1) {
         const auto& snapHeader = makeShared<Ieee8022LlcSnapHeader>();
         if (ethType != -1) {

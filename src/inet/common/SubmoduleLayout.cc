@@ -29,6 +29,7 @@ static double getPosition(cModule *submodule, int dimensionIndex)
 
 void layoutSubmodulesWithoutGates(cModule *module, int dimensionIndex, double moduleSpacing)
 {
+    return;
     double submodulePosition = moduleSpacing;
     for (cModule::SubmoduleIterator it(module); !it.end(); it++) {
         auto submodule = *it;
@@ -42,6 +43,7 @@ void layoutSubmodulesWithoutGates(cModule *module, int dimensionIndex, double mo
 
 void layoutSubmodulesWithGates(cModule *module, int dimensionIndex, double moduleSpacing)
 {
+    return;
     std::vector<cModule *> submodules;
     for (cModule::SubmoduleIterator it(module); !it.end(); it++) {
         auto submodule = *it;
@@ -81,6 +83,7 @@ void layoutSubmodulesWithGates(cModule *module, int dimensionIndex, double modul
 
 void layoutSubmodules(cModule *module, int dimensionIndex, double moduleSpacing)
 {
+    return;
     layoutSubmodulesWithoutGates(module, dimensionIndex, moduleSpacing);
     layoutSubmodulesWithGates(module, dimensionIndex, moduleSpacing);
 }

@@ -12,18 +12,19 @@
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with this program; if not, see <http://www.gnu.org/licenses/>.
+// along with this program; if not, see http://www.gnu.org/licenses/.
 //
 
-package inet.protocol.ieee8022;
+package inet.protocol.ethernet;
 
-import inet.queueing.base.PacketFlowBase;
-
-simple Ieee8022LlcInserter extends PacketFlowBase like IIeee8022LlcInserter
+simple EthernetPauseCommandProcessor
 {
     parameters:
-        @class(Ieee8022LlcInserter);
+        //@class(EthernetPauseCommandProcessor);
         @display("i=block/inserter");
-        bool useSNAP = default(false);  // create EtherFrameWithSNAP frames instead of EthernetIIFrame
+        @signal[pauseSent](type=long); // pause units
+        @statistic[pauseSent](title="pause sent";record=count,sum,vector);
+    gates:
+        input in @labels(send);
+        output out @labels(send);
 }
-
