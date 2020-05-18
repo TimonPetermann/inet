@@ -23,6 +23,7 @@ import inet.queueing.contract.IPacketFilter;
 simple EthernetFcsChecker extends PacketFilterBase like IPacketFilter
 {
     parameters:
+        bool popFcs = default(true); // TODO: do we really need this?
         @class(EthernetFcsChecker);
         @display("i=block/checker");
 }
