@@ -361,7 +361,7 @@ Here is a video of the simulation. Signals are visualized with colored rings, su
 datalink-layer transmissions are visualized with arrows. The signals are displayed with
 spectrum figures and spectrograms:
 
-.. video:: media/noise10.mp4
+.. video:: media/Noise10.mp4
    :width: 100%
 
 .. animation speed none, playback speed 0.25, zoom 3.71, normal run
