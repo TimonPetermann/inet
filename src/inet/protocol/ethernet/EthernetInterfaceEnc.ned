@@ -20,7 +20,6 @@ package inet.protocol.ethernet;
 import inet.common.MessageDispatcher;
 import inet.linklayer.contract.IEthernetInterface;
 import inet.linklayer.ethernet.IEtherEncap;
-import inet.linklayer.ieee8021q.IIeee8021qEncap;
 import inet.networklayer.common.InterfaceEntry;
 import inet.protocol.common.InterPacketGap;
 import inet.protocol.common.PacketSerializer;
@@ -28,8 +27,7 @@ import inet.protocol.common.PacketTrimmer;
 import inet.protocol.common.PaddingInserter;
 import inet.protocol.common.ProtocolChecker;
 import inet.protocol.connectionmanager.ConnectionManager;
-import inet.protocol.ieee8021q.IIeee8021qChecker;
-import inet.protocol.ieee8021q.IIeee8021qInserter;
+import inet.protocol.ieee8021q.IIeee8021qTagger;
 import inet.protocol.ieee8022.IIeee8022LlcChecker;
 import inet.protocol.ieee8022.IIeee8022LlcInserter;
 import inet.protocol.transceiver.StreamingReceiver;
@@ -45,14 +43,14 @@ import inet.queueing.server.InstantServer;
 module EtherEncapModularized like IEtherEncap
 {
     parameters:
-    //        string interfaceTableModule;   // The path to the InterfaceTable module
+        //        string interfaceTableModule;   // The path to the InterfaceTable module
         bool useSNAP = default(false);  // create EtherFrameWithSNAP frames instead of EthernetIIFrame
-    //        string fcsMode @enum("declared", "computed");
-    //        bool registerProtocol = default(false);     //FIXME //KLUDGE should redesign place of EtherEncap and LLC modules
-    //        @lifecycleSupport;
-    //        double stopOperationExtraTime @unit(s) = default(-1s);    // extra time after lifecycle stop operation finished
-    //        double stopOperationTimeout @unit(s) = default(2s);    // timeout value for lifecycle stop operation
-    //        @display("i=block/square");
+        //        string fcsMode @enum("declared", "computed");
+        //        bool registerProtocol = default(false);     //FIXME //KLUDGE should redesign place of EtherEncap and LLC modules
+        //        @lifecycleSupport;
+        //        double stopOperationExtraTime @unit(s) = default(-1s);    // extra time after lifecycle stop operation finished
+        //        double stopOperationTimeout @unit(s) = default(2s);    // timeout value for lifecycle stop operation
+        //        @display("i=block/square");
         llcInserter.useSNAP = useSNAP;
     gates:
         input upperLayerIn @labels(Ieee802Ctrl/down); // higher layer
@@ -77,11 +75,11 @@ module EtherEncapModularized like IEtherEncap
         typeOrLengthInserter: EthernetTypeOrLengthInserter {
             @display("p=200,500");
         }
-        ctagInserter: <default("OmittedIeee8021qInserter")> like IIeee8021qInserter {
+        ctagInserter: <default("OmittedIeee8021qTagger")> like IIeee8021qTagger {
             vlanTagType = "c";
             @display("p=200,600");
         }
-        stagInserter: <default("OmittedIeee8021qInserter")> like IIeee8021qInserter {
+        stagInserter: <default("OmittedIeee8021qTagger")> like IIeee8021qTagger {
             vlanTagType = "s";
             @display("p=200,700");
         }
@@ -99,11 +97,11 @@ module EtherEncapModularized like IEtherEncap
         addressChecker: EthernetAddressChecker {
             @display("p=500,800");
         }
-        stagChecker: <default("OmittedIeee8021qChecker")> like IIeee8021qChecker {
+        stagChecker: <default("OmittedIeee8021qTagger")> like IIeee8021qTagger {
             vlanTagType = "s";
             @display("p=500,700");
         }
-        ctagChecker: <default("OmittedIeee8021qChecker")> like IIeee8021qChecker {
+        ctagChecker: <default("OmittedIeee8021qTagger")> like IIeee8021qTagger {
             vlanTagType = "c";
             @display("p=500,600");
         }
