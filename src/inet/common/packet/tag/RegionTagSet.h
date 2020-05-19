@@ -16,6 +16,7 @@
 #ifndef __INET_REGIONTAGSET_H_
 #define __INET_REGIONTAGSET_H_
 
+#include <algorithm>
 #include <functional>
 #include "inet/common/INETDefs.h"
 #include "inet/common/Units.h"
@@ -68,6 +69,8 @@ class INET_API RegionTagSet : public cObject
             return *this;
         }
 
+        bool operator<(const RegionTagSet::RegionTag<T>& other) const { return offset < other.offset; }
+
         b getOffset() const { return offset; }
         void setOffset(b offset) { this->offset = offset; }
 
@@ -89,11 +92,16 @@ class INET_API RegionTagSet : public cObject
     void ensureAllocated();
 
     void addTag(b offset, b length, cObject *tag);
+    void mapAllTags(b offset, b length, std::function<void (b, b, cObject *)> f);
+    void mapAllTags(b offset, b length, std::function<void (b, b, const cObject *)> f) const;
+    std::vector<RegionTag<cObject>> getAllTags(b offset, b length) const;
     cObject *removeTag(int index);
     void clearAllTags();
 
     int getTagIndex(const std::type_info& typeInfo, b offset, b length) const;
     template <typename T> int getTagIndex(b offset, b length) const;
+
+    template <typename T> void splitTags(b offset) const;
 
   public:
     RegionTagSet();
@@ -144,8 +152,14 @@ class INET_API RegionTagSet : public cObject
      */
     template <typename T> T *getTag(b offset, b length) const;
 
+    /**
+     * Calls the given function with all tags for the provided type and range.
+     */
     template <typename T> void mapAllTags(b offset, b length, std::function<void (b, b, const T*)> f) const;
 
+    /**
+     * Calls the given function with all tags for the provided type and range.
+     */
     template <typename T> void mapAllTags(b offset, b length, std::function<void (b, b, T*)> f);
 
     /**
@@ -164,6 +178,11 @@ class INET_API RegionTagSet : public cObject
     template <typename T> T *addTagIfAbsent(b offset, b length);
 
     /**
+     * Returns the newly added tags for the provided type and range where the tag is absent.
+     */
+    template <typename T> std::vector<RegionTag<T>> addTagsWhereAbsent(b offset, b length);
+
+    /**
      * Removes the tag for the provided type and range, or throws an exception if no such tag is found.
      */
     template <typename T> T *removeTag(b offset, b length);
@@ -176,7 +195,7 @@ class INET_API RegionTagSet : public cObject
     /**
      * Removes and returns all tags for the provided type and range.
      */
-    template <typename T> std::vector<RegionTag<T>> removeAllTags(b offset, b length);
+    template <typename T> std::vector<RegionTag<T>> removeTagsWherePresent(b offset, b length);
 };
 
 inline int RegionTagSet::getNumTags() const
@@ -198,6 +217,23 @@ template <typename T>
 inline int RegionTagSet::getTagIndex(b offset, b length) const
 {
     return getTagIndex(typeid(T), offset, length);
+}
+
+template <typename T>
+inline void RegionTagSet::splitTags(b offset) const
+{
+    if (regionTags != nullptr) {
+        std::vector<RegionTag<cObject>> insertedRegionTags;
+        for (auto& regionTag : *regionTags) {
+            if (regionTag.getStartOffset() < offset && offset < regionTag.getEndOffset()) {
+                regionTag.setLength(offset - regionTag.getStartOffset());
+                insertedRegionTags.push_back(RegionTag<cObject>(offset, regionTag.getEndOffset() - offset, regionTag.getTag()->dup()));
+            }
+        }
+        for (auto regionTag : insertedRegionTags)
+            regionTags->push_back(RegionTag<cObject>(regionTag.getOffset(), regionTag.getLength(), regionTag.getTag()->dup()));
+        std::sort(regionTags->begin(), regionTags->end());
+    }
 }
 
 template <typename T>
@@ -237,6 +273,39 @@ inline T *RegionTagSet::addTagIfAbsent(b offset, b length)
 }
 
 template <typename T>
+inline std::vector<RegionTagSet::RegionTag<T>> RegionTagSet::addTagsWhereAbsent(b offset, b length)
+{
+    std::vector<RegionTagSet::RegionTag<T>> result;
+    splitTags<T>(offset);
+    splitTags<T>(offset + length);
+    b endOffset = offset + length;
+    b o = offset;
+    if (regionTags != nullptr) {
+        for (auto& regionTag : *regionTags) {
+            auto tag = regionTag.getTag();
+            if (typeid(*tag) == typeid(T)) {
+                b l = regionTag.getStartOffset() - o;
+                if (l > b(0)) {
+                    if (l > endOffset - o)
+                        l = endOffset - o;
+                    result.push_back(RegionTag<T>(o, l, new T()));
+                    o += l + regionTag.getLength();
+                    if (o >= endOffset)
+                        break;
+                }
+            }
+        }
+        b l = endOffset - o;
+        if (l > b(0))
+            result.push_back(RegionTag<T>(o, l, new T()));
+        for (auto& regionTag : result)
+            regionTags->push_back(RegionTag<cObject>(regionTag.getOffset(), regionTag.getLength(), regionTag.getTag()->dup()));
+        std::sort(regionTags->begin(), regionTags->end());
+    }
+    return result;
+}
+
+template <typename T>
 inline T *RegionTagSet::removeTag(b offset, b length)
 {
     int index = getTagIndex<T>(offset, length);
@@ -255,37 +324,21 @@ inline T *RegionTagSet::removeTagIfPresent(b offset, b length)
 template <typename T>
 inline void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, const T*)> f) const
 {
-    const_cast<RegionTagSet *>(this)->mapAllTags<T>(offset, length, std::function<void (b, b, T*)>(f));
+    mapAllTags(offset, length, [&] (b o, b l, const cObject *tag) {
+        if (typeid(*tag) == typeid(T))
+            f(o, l, static_cast<const T *>(tag));
+    });
 }
 
 template <typename T>
 inline void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, T*)> f)
 {
-    if (regionTags != nullptr) {
-        b getStartOffset = offset;
-        b getEndOffset = offset + length;
-        for (auto& regionTag : *regionTags) {
-            if (auto tag = dynamic_cast<T *>(regionTag.getTag())) {
-                if (getEndOffset <= regionTag.getStartOffset() || regionTag.getEndOffset() <= getStartOffset)
-                    // no intersection
-                    continue;
-                else if (getStartOffset <= regionTag.getStartOffset() && regionTag.getEndOffset() <= getEndOffset)
-                    // get totally covers region
-                    f(regionTag.getOffset(), regionTag.getLength(), tag);
-                else if (regionTag.getStartOffset() < getStartOffset && getEndOffset < regionTag.getEndOffset())
-                    // get splits region into two parts
-                    f(getStartOffset, getEndOffset - getStartOffset, tag);
-                else if (regionTag.getEndOffset() <= getEndOffset)
-                    // get cuts end of region
-                    f(getStartOffset, regionTag.getEndOffset() - getStartOffset, tag);
-                else if (getStartOffset <= regionTag.getStartOffset())
-                    // get cuts beginning of region
-                    f(regionTag.getStartOffset(), getEndOffset - regionTag.getStartOffset(), tag);
-                else
-                    ASSERT(false);
-            }
-        }
-    }
+    splitTags<T>(offset);
+    splitTags<T>(offset + length);
+    mapAllTags(offset, length, [&] (b o, b l, cObject *tag) {
+        if (typeid(*tag) == typeid(T))
+            f(o, l, static_cast<T *>(tag));
+    });
 }
 
 template <typename T>
@@ -299,7 +352,7 @@ inline std::vector<RegionTagSet::RegionTag<T>> RegionTagSet::getAllTags(b offset
 }
 
 template <typename T>
-inline std::vector<RegionTagSet::RegionTag<T>> RegionTagSet::removeAllTags(b offset, b length)
+inline std::vector<RegionTagSet::RegionTag<T>> RegionTagSet::removeTagsWherePresent(b offset, b length)
 {
     auto result = getAllTags<T>(offset, length);
     clearTags(offset, length);

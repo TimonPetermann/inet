@@ -76,8 +76,50 @@ void RegionTagSet::addTag(b offset, b length, cObject *tag)
 {
     ensureAllocated();
     regionTags->push_back(RegionTag<cObject>(offset, length, tag));
+    std::sort(regionTags->begin(), regionTags->end());
     if (tag->isOwnedObject())
         take(static_cast<cOwnedObject *>(tag));
+}
+
+void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, cObject *)> f)
+{
+    if (regionTags != nullptr) {
+        b startOffset = offset;
+        b endOffset = offset + length;
+        for (auto& regionTag : *regionTags) {
+            if (endOffset <= regionTag.getStartOffset() || regionTag.getEndOffset() <= startOffset)
+                // no intersection
+                continue;
+            else if (startOffset <= regionTag.getStartOffset() && regionTag.getEndOffset() <= endOffset)
+                // totally covers region
+                f(regionTag.getOffset(), regionTag.getLength(), regionTag.getTag());
+            else if (regionTag.getStartOffset() < startOffset && endOffset < regionTag.getEndOffset())
+                // splits region into two parts
+                f(startOffset, endOffset - startOffset, regionTag.getTag());
+            else if (regionTag.getEndOffset() <= endOffset)
+                // cuts end of region
+                f(startOffset, regionTag.getEndOffset() - startOffset, regionTag.getTag());
+            else if (startOffset <= regionTag.getStartOffset())
+                // cuts beginning of region
+                f(regionTag.getStartOffset(), endOffset - regionTag.getStartOffset(), regionTag.getTag());
+            else
+                ASSERT(false);
+        }
+    }
+}
+
+void RegionTagSet::mapAllTags(b offset, b length, std::function<void (b, b, const cObject *)> f) const
+{
+    const_cast<RegionTagSet *>(this)->mapAllTags(offset, length, f);
+}
+
+std::vector<RegionTagSet::RegionTag<cObject>> RegionTagSet::getAllTags(b offset, b length) const
+{
+    std::vector<RegionTagSet::RegionTag<cObject>> result;
+    mapAllTags(offset, length, [&] (b o, b l, const cObject *t) {
+        result.push_back(RegionTag<cObject>(o, l, t->dup()));
+    });
+    return result;
 }
 
 cObject *RegionTagSet::removeTag(int index)
@@ -172,7 +214,7 @@ void RegionTagSet::copyTags(const RegionTagSet& source, b sourceOffset, b offset
     clearTags(offset, length);
     ensureAllocated();
     auto shift = offset - sourceOffset;
-    auto regionTags = source.getAllTags<cObject>(sourceOffset, length);
+    auto regionTags = source.getAllTags(sourceOffset, length);
     for (auto& regionTag : regionTags)
         addTag(regionTag.getOffset() + shift, regionTag.getLength(), regionTag.getTag()->dup());
 }
