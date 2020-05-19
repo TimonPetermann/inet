@@ -63,11 +63,15 @@ void Ieee8021qTagger::processPacket(Packet *packet)
             auto vlanHeader = makeShared<Ieee8021qHeader>();
             vlanHeader->setTypeOrLength(etherType);
             vlanHeader->setPcp(newUserPriority);
+            packet->trimFront();
             packet->insertAtFront(vlanHeader);
         }
-        else if (oldUserPriority != -1 && newUserPriority == -1)
+        else if (oldUserPriority != -1 && newUserPriority == -1) {
+            packet->trimFront();
             packet->removeAtFront<Ieee8021qHeader>();
+        }
         else {
+            packet->trimFront();
             auto vlanHeader = packet->removeAtFront<Ieee8021qHeader>();
             vlanHeader->setPcp(newUserPriority);
             packet->insertAtFront(vlanHeader);
@@ -89,11 +93,15 @@ void Ieee8021qTagger::processPacket(Packet *packet)
             auto vlanHeader = makeShared<Ieee8021qHeader>();
             vlanHeader->setTypeOrLength(etherType);
             vlanHeader->setVid(newVlanId);
+            packet->trimFront();
             packet->insertAtFront(vlanHeader);
         }
-        else if (oldVlanId != -1 && newVlanId == -1)
+        else if (oldVlanId != -1 && newVlanId == -1) {
+            packet->trimFront();
             packet->removeAtFront<Ieee8021qHeader>();
+        }
         else {
+            packet->trimFront();
             auto vlanHeader = packet->removeAtFront<Ieee8021qHeader>();
             vlanHeader->setVid(newVlanId);
             packet->insertAtFront(vlanHeader);
