@@ -142,8 +142,8 @@ const EtherMacBase::EtherDescr EtherMacBase::etherDescrs[NUM_OF_ETHERDESCRS] = {
 
 static int compareEthernetFrameType(Packet *a, Packet *b)
 {
-    const auto& ah = a->peekAtFront<EthernetMacHeader>();
-    const auto& bh = b->peekAtFront<EthernetMacHeader>();
+    const auto& ah = a->peekDataAt<Ieee8023TypeOrLength>(B(12));
+    const auto& bh = b->peekDataAt<Ieee8023TypeOrLength>(B(12));
     int ac = (ah->getTypeOrLength() == ETHERTYPE_FLOW_CONTROL) ? 0 : 1;
     int bc = (bh->getTypeOrLength() == ETHERTYPE_FLOW_CONTROL) ? 0 : 1;
     return ac - bc;
